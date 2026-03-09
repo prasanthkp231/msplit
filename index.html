@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+<meta charset="UTF-8">
+
+
+<style>
+body{
+    font-family: Arial;
+    margin:40px;
+}
+
+h2{
+    margin-bottom:5px;
+}
+
+table{
+    border-collapse:collapse;
+    margin-top:20px;
+}
+
+td,th{
+    border:1px solid #aaa;
+    padding:6px 10px;
+    text-align:center;
+}
+
+button{
+    padding:10px 20px;
+    margin-top:15px;
+    margin-right:10px;
+    cursor:pointer;
+}
+
+#result{
+    margin-top:20px;
+}
+</style>
+
+</head>
+
+<body>
+<input type="file" id="fileInput" accept=".csv">
+
+<br>
+
+<button onclick="processFile()">Process</button> <button onclick="downloadCSV()">Download Output CSV</button>
+
+<div id="result"></div>
+
+<script>
+
+let inputCSV="";
+let outputCSV="";
+
+document.getElementById("fileInput").addEventListener("change",function(e){
+
+    const file=e.target.files[0];
+    if(!file) return;
+
+    const reader=new FileReader();
+
+    reader.onload=function(event){
+        inputCSV=event.target.result;
+    };
+
+    reader.readAsText(file);
+
+});
+
+
+function randomInt(min,max){
+    return Math.floor(Math.random()*(max-min+1))+min;
+}
+
+
+function shuffle(array){
+    for(let i=array.length-1;i>0;i--){
+        let j=Math.floor(Math.random()*(i+1));
+        [array[i],array[j]]=[array[j],array[i]];
+    }
+}
+
+
+function constrainedSplit(total,limits){
+
+    let parts=new Array(limits.length).fill(0);
+    let remaining=total;
+
+    let indices=[...Array(limits.length).keys()];
+    shuffle(indices);
+
+    for(let idx of indices){
+
+        let maxVal=Math.min(limits[idx],remaining);
+
+        if(maxVal<=0) continue;
+
+        let val=randomInt(0,maxVal);
+
+        parts[idx]=val;
+
+        remaining-=val;
+    }
+
+    shuffle(indices);
+
+    for(let idx of indices){
+
+        if(remaining<=0) break;
+
+        let diff=limits[idx]-parts[idx];
+
+        if(diff<=0) continue;
+
+        let add=Math.min(diff,remaining);
+
+        parts[idx]+=add;
+
+        remaining-=add;
+    }
+
+    return parts;
+}
+
+
+function processFile(){
+
+    if(!inputCSV){
+        alert("Upload input.csv first");
+        return;
+    }
+
+    let lines=inputCSV.trim().split(/\r?\n/);
+
+    let firstRowOld=lines[0].split(",");
+
+    let expandedLimits=[];
+    let expandedLimitsNew=[];
+    let pairedIndices=[];
+
+    for(let value of firstRowOld){
+
+        if(value.includes("/")){
+
+            let limits=value.split("/").map(Number);
+
+            expandedLimits.push(...limits);
+
+            expandedLimitsNew.push(limits[0]);
+
+            pairedIndices.push([
+                expandedLimits.length-2,
+                expandedLimits.length-1
+            ]);
+
+        }else{
+
+            expandedLimits.push(Number(value));
+            expandedLimitsNew.push(Number(value));
+        }
+    }
+
+    let firstRow=expandedLimitsNew;
+
+    let output=[];
+    output.push(firstRowOld.join(","));
+
+    for(let i=1;i<lines.length;i++){
+
+        if(lines[i].trim()=="") continue;
+
+        let total=parseInt(lines[i].split(",")[0])||0;
+
+        let parts=constrainedSplit(total,firstRow.slice(1));
+
+        for(let pair of pairedIndices){
+
+            let col1=pair[0];
+            let col2=pair[1];
+
+            let chosen=Math.random()<0.5?col1:col2;
+
+            parts.splice(chosen-1,0,0);
+        }
+
+        output.push(total+","+parts.join(","));
+    }
+
+    outputCSV=output.join("\n");
+
+    displayTable(outputCSV);
+
+}
+
+
+function displayTable(csv){
+
+    let rows=csv.split("\n");
+
+    let html="<table>";
+
+    for(let r of rows){
+
+        html+="<tr>";
+
+        let cols=r.split(",");
+
+        for(let c of cols){
+            html+="<td>"+c+"</td>";
+        }
+
+        html+="</tr>";
+    }
+
+    html+="</table>";
+
+    document.getElementById("result").innerHTML=html;
+}
+
+
+function downloadCSV(){
+
+    if(!outputCSV){
+        alert("Generate output first");
+        return;
+    }
+
+    let blob=new Blob([outputCSV],{type:"text/csv"});
+
+    let a=document.createElement("a");
+
+    a.href=URL.createObjectURL(blob);
+
+    a.download="output.csv";
+
+    a.click();
+}
+
+</script>
+
+</body>
+</html>
